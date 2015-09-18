@@ -1,0 +1,28 @@
+Some simple data sets to play with.
+
+
+datass = gengaussian(numdim,numgroup,nummu,numdata,alpha,musigma,sigma);
+	Generates multiple groups of data items, each group being a mixture
+	of Gaussians.  The Gaussians are shared across groups, with each
+	group having different mixing proportions.  Spherical Gaussians
+	each of same standard deviation.
+numdim    dimensionality of the data.
+numgroup  number of groups.
+nummu     number of Gaussians.
+numdata   number of data items per group.
+alpha     concentration parameter for the mixing proportions of each group.
+musigma   standard deviation of the mean of the Gaussians.
+sigma     standard deviation of each Gaussian.
+
+
+datass = genbars(imsize,noiselevel,numbarpermix,numgroup,numdata);
+	Generate bars.  Each group can be seen as an image with multiple 
+	bars in it (either horizontal or vertical), with the pixel value 
+	of each pixel being the number of data items with that value.
+imsize        size of image.
+noiselevel    amount of noise (noiselevel/(1+noiselvel) is actual 
+              proportion of noise).
+numbarpermix  probabilities of generating a particular number of bars.
+numgroup      number of groups (images).
+numdata       number of data items drawn from each group.
+

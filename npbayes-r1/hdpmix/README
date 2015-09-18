@@ -1,0 +1,168 @@
+Hierarchical Dirichlet process mixture modelling.
+
+Three implementations: chinese restaurant franchise, auxiliary
+variable method with beta variables, and range limiting auxiliary
+variables especially for multinomial data.
+
+
+The Lexicon
+===========
+ss			Sufficient statistics        
+tt			The table index
+cc			The class index
+nd			Number of data items
+nt			Number of tables
+a, b			Shape and inverse scale of a gamma distribution.
+
+
+HDP specific structures
+=======================
+index j means in group j in the following.
+
+% numbers
+hdp.numgroup            Number of groups.
+hdp.numdata(j)          Number of data items in group j.
+hdp.numtable(j)         Number of tables in group j.
+hdp.numclass            Number of classes.
+
+% data specific
+hdp.datass{j}(:,i)	Statistics of data i in group j.
+hdp.datatt{j}(i)	Table to which data i in group j belongs to.
+hdp.datacc{j}(i)	Class to which data i in group j belongs to.
+
+% table specific
+hdp.tabless{j}(:,l)	Sufficient statistics for data assigned to table l.
+hdp.tablecc{j}(l)	Class to which table l belongs to.
+hdp.tablend{j}(l)	Number of data associated with table l.
+
+% class specific
+hdp.classqq(:,k)	Statistics for data and prior assigned to class k.
+hdp.classss(:,k)	Statistics for data and prior assigned to class k.
+			Especially for multinomial data.
+hdp.classnd(j,k)	# data items in group j associated with class k.
+hdp.classnt(j,k)	# tables in group j associated with class k.
+hdp.totalnt(k)          total # tables associated with class k.
+hdp.beta(k)		The beta weight associated with class k.
+
+hdp.type		The typ of sampling scheme used: 'beta', 'crf', 'block',
+			or 'std' if standard representation (same as beta).
+
+
+Parameters of the HDP
+=====================
+hdp.gamma		concentration parameter at top.
+hdp.gammaa,gammab	parameters of gamma prior on gamma.
+hdp.alpha		concentration parameter at bottom.
+hdp.alphaa,alphab	parameters of gamma prior on alpha.
+hdp.qq0			A component with no data associated with it.
+hdp.eta			Parameters of qq0 (for multinomial only).
+
+
+Methods
+=======
+hdp = hdp_init(datass,gammaa,gammab,alphaa,alphab,qq0,initcc,initpost)
+	Constructs a representation of a HDP mixture.
+	inittype can be '1permix', #classes (data items assigned randomly), 
+	or datacc itself.
+	initpost, if not empty, is a structure containing the necessary
+	information pertaining to a sample from a posterior given other data.
+
+hdp = hdp_standardize(hdp)
+	Returns a standard representation (I just use beta).
+
+hdp = hdp_specialize(hdp,hdptype,range)
+	Specialize to particular sampling scheme (beta,crf,block).
+	If hdptype is 'block', range gives range of auxiliary variable (larger
+	gives faster convergence but slower per iteration).
+
+hdp = hdp_iterate(hdp,numiter,totiterA)
+	Runs hdp for numiter iterations.  If totiter is given it is used 
+	as the total number of iterations to be run, of which this call 
+	to hdp_iterate is part of.  This is just used to estimate total 
+	run time required.
+
+hdp = hdp_iterateconparam(hdp,numiter)
+	Runs hdp for numiter iterations.  Also updates concentration parameters.
+
+[postsample,hdp] = hdp_posterior(hdp,numburnin,numsample,numspace)
+	Collects posterior samples from HDP.
+	Runs hdp for numburnin iterations, then collects numsample samples
+	with numspace iterations in between.  Samples consist of classqq,
+	totalnt, gammga and alpha.  Also returns hdp at end of run.
+
+lik = hdp_predict(qq0,alldatass,postsample,hdptype,numburnin,numsample,numspace)
+	Estimates the predictive log likelihood of each set of data in
+	alldatass, given posterior samples. qq0 gives type of distribution,
+	hdptype gives type of sampling, numburnin, numsample and numspace as
+	in hdp_posterior.  Uses Kass and Raftery.
+	First dimension of lik ranges over test set, second ranges over 
+	posterior samples, and third ranges over posterior samples of test
+	sets.  Actual estimate of the likelihood is meanlik(lik).
+
+hdp_crf
+        One iteration of Gibbs sampling in chinese restaurant franchise
+        scheme.  Uses tables.
+
+hdp_beta
+        One iteration of Gibbs sampling with direct beta weight 
+	representation (auxiliary variables) .  
+	Uses classes directly (no tables).
+
+hdpMultnomial_block
+	One iteration of blocked Gibbs sampling with range limiting auxiliary
+	variable (only for multinomials).
+
+hdp_conparam
+	One iteration of update to concentration parameters.
+
+Temporary variables
+===================
+jj	index of current group
+ii	index of current data item in group.
+ss	Statistics of current data items.
+oldcc	index of class of current data item (to be replaced with
+	new sample).
+newcc	the new sampled value for class of current data item.
+pi	group specific mixing proportion (multinomial only).
+theta	a sample from posterior of component parameters (multinomial only).
+
+Unrepresented classes
+=====================
+Classes of index greater than numclass are "unrepresented classes".
+Beta weights can be associated with these unrepresented classes.
+
+Variables used
+==============
+			beta		crf		block
+concentration params	gamma		gamma		gamma
+			alpha		alpha		alpha
+Class membership	datacc				datacc
+			classnd				classnd
+			numclass	numclass	numclass
+			beta				beta
+table representation			datatt
+					tablecc
+					tablend
+					numtable
+			classnt		classnt		classnt
+			totalnt		totalnt		totalnt
+statistics		classqq		classqq	
+							classss
+							eta
+predictive likelihood	totalnt		totalnt		totalnt
+			classqq		classqq
+							classss
+auxiliary variable					range
+
+Specializing and Standardizing
+===============================
+crf->std: create datacc,classnd,beta
+          delete datatt,tablecc,tablend,numtable
+block->std: create classqq
+            delete classss,eta,range
+std->crf: delete datacc,classnd,beta
+          create datatt,tablecc,tablend,numtable
+std->block: delete classqq
+            create classss,eta,range
+
+

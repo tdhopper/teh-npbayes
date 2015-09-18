@@ -1,0 +1,116 @@
+Dirichlet Process mixture modelling.
+Three implementations: chinese restaurant process, auxiliary variable method
+with beta variables, and k-means (always pick highest prob class).
+
+
+The Lexicon
+===========
+ss			Sufficient statistics        
+cc			The class index
+nd			Number of data items
+a,b			Shape and inverse scale of a gamma distribution.
+
+
+DP specific structures
+======================
+% numbers
+dp.numdata		Number of data items.
+dp.numclass		Number of classes.
+
+% data specific
+dp.datass(:,i)		Statistics of data i.
+dp.datacc(1,i)		Class to which data i belongs to.
+
+% class specific
+dp.classqq(:,k)		Statistics for data and prior assigned to class k.
+dp.classnd(1,k)		# data items in mixture j associated with class k.
+dp.beta(k)		The beta weight associated with class k.
+
+dp.type			The type of sampling scheme used: 'beta','crf','kmeans',
+			or 'all' if all data structures are present.
+
+
+Parameters of the HDP
+=====================
+dp.alpha		concentration parameter at bottom.
+dp.alphaa,alphab	parameters of gamma prior on alpha.
+dp.qq0			A component with no data associated with it.
+
+
+Methods
+=======
+dp = dp_init(datass,alphaa,alphab,qq0,inittype)
+	Constructs a representation of a DP mixture.
+	inittype can be '1perdata', #classes (data items assigned randomly), 
+	or datacc itself.
+
+dp = dp_standardize(dp)
+	Returns a standard representation (I use beta).
+
+dp = dp_specialize(dp,dptype)
+	Specialize to particular sampling scheme (beta,crp,kmeans).
+
+dp = dp_iterate(dp,numiter,totiter)
+	Runs dp for numiter iterations.  If totiter is given it is used 
+        as the total number of iterations to be run, of which this call 
+        to hdp_iterate is part of.  This is just used to estimate total 
+        run time required.
+
+dp = dp_iterate(dp,numiter,totiter)
+	Same as dp_iterate, but includes updates to the concentration 
+	parameter.
+
+[postsample,dp] = dp_posterior(dp,numburnin,numsample,numspace);
+	Runs dp for numburnin iterations, the collects numsample samples
+	with numspace iterations in between.  Returns dp at end of run,
+	and classqq, classnd and alpha.
+
+lik = dp_predict(qq0,alldatass,postsample)
+	Computes the predictive log likelihood of each data item in
+	alldatass, given posterior samples. qq0 gives type of distribution.
+
+lik = dp_samplepred(qq0,alldatass,postsample,numburnin,numsample)
+	Computes the predictive log likelihood of each data item in
+	alldatass, given posterior samples. qq0 gives type of distribution.
+	Uses Kass Raftery estimation.
+
+dp_crp
+        One iteration of Gibbs sampling in chinese restaurant process scheme.
+
+dp_beta
+        One iteration of Gibbs sampling with direct beta weight 
+	representation (auxiliary variables) .  
+
+dp_kmeans
+	One iteration of k-means, assigning each data item to its highest prob
+	class.
+
+
+Temporary variables
+===================
+jj	index of current mixture
+ii	index of current data item in mixture.
+ss	Statistics of current data items.
+oldcc	index of class of current data item (to be replaced with
+	new sample).
+newcc	the new sampled value for class of current data item.
+
+
+Unrepresented classes
+=====================
+Classes of index greater than numclass are "unrepresented classes".
+Beta weights can be associated with these unrepresented classes.
+
+
+Variables used
+==============
+			dp_beta		dp_crf		dp_kmeans
+concentration params	alpha		alpha		alpha
+Class membership	datacc		datacc		datacc
+class statistics	numclass	numclass	numclass
+			beta				beta
+			classnd		classnd		classnd
+			classqq		classqq		classqq
+
+std->crp,kmeans: delete beta
+crp,kmeans->std: create beta

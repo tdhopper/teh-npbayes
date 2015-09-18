@@ -1,0 +1,140 @@
+Latent Dirichlet Allocation
+Three samplers: 
+lda_beta                gibbs sample datacc, integrate out pi, theta
+ldaMultinomial_block    gibbs sample datacc, pi, theta (much faster 
+                        computationally).  Only for Multinomial.
+lda_crf			CRF sampling scheme.
+
+
+The Lexicon
+===========
+ss			Sufficient statistics        
+tt			The table index
+cc			The class index
+nd			Number of data items
+nt			Number of tables
+a,b			Shape and inverse scale of a gamma distribution.
+
+
+LDA specific structures
+=======================
+index j means in group j in the following.
+
+% numbers
+lda.numgroup            Number of groups.
+lda.numdata(j)          Number of data items in group j.
+lda.numtable(j)         Number of tables in group j.
+lda.numclass            Number of classes.
+
+% data specific
+lda.datass{j}(:,i)	Statistics of data i in group j.
+lda.datatt{j}(i)	Table to which data i in group j belongs to.
+lda.datacc{j}(i)	Class to which data i in group j belongs to.
+
+% table specific
+lda.tabless{j}(:,l)	Sufficient statistics for data assigned to table l.
+lda.tablecc{j}(l)	Class to which table l belongs to.
+lda.tablend{j}(l)	Number of data associated with table l.
+
+% class specific
+lda.classqq(:,k)	Statistics for data and prior assigned to class k.
+lda.classss(:,k)	Statistics for data and prior assigned to class k.
+			Only for multinomial data.
+lda.classnd(j,k)	# data items in group j associated with class k.
+lda.classnt(j,k)	# tables in group j associated with class k.
+lda.beta(k)		The beta weight associated with class k.
+
+lda.type		The typ of sampling scheme used: 'beta', 'crf', 'block',
+			or 'std' if standard representation.
+
+
+Parameters of the LDA
+=====================
+lda.alpha		concentration parameter at bottom.
+lda.alphaa,alphab	parameters of gamma prior on alpha.
+lda.qq0			A component with no data associated with it.
+lda.eta			Parameters of qq0 (for Multinomial only).
+
+
+Methods
+=======
+lda = lda_init(datass,alphaa,alphab,qq0,initcc,initpost)
+	Constructs a representation of a LDA.
+	initcc can be either an initial datacc, or the number of classes.
+	initpost, if given, is a struct with information regarding a
+	a sample from a posterior given other data (classqq and alpha).
+lda = lda_standardize(lda)
+	Returns a standard representation (I use beta representation).
+lda = lda_specialize(lda,ldatype)
+	Specialize to particular sampling scheme (beta,crf,block).
+lda = lda_iterate(lda,numiter,totiter)
+	Runs LDA sampling for a number of iterations.  If totiter is given
+	it is used as the total number of iterations to be run, of which 
+	this call to hdp_iterate is part of.  This is just used to estimate
+	total run time required.
+lda = lda_iterateconparam(lda,numiter,totiter)
+	Same as lda_iterate, except lda_conparam is also called per iteration.
+[postsample,lda] = lda_posterior(lda,numburnin,numsample,numspace);
+	Collects posterior samples from LDA.
+	Runs lda for numburnin iterations, then collects numsample samples
+	with numspace iterations in between.  Samples consist of classqq
+	and alpha.  Also returns lda at end of run.
+lik = lda_predict(qq0,alldatass,postsample,ldatype,numburnin,numsample,numspace)
+	Estimates the predictive log likelihood of each set of data in
+	alldatass, given posterior samples. qq0 gives type of distribution,
+	ldatype gives type of sampling, numburnin, numsample and numspace as
+	in lda_posterior.  Uses Kass and Raftery.
+lda_crf
+        One iteration of Gibbs sampling in chinese restaurant franchise
+        scheme.  Uses tables.
+lda_beta
+        One iteration of Gibbs sampling with direct beta weight 
+	representation (auxiliary variables) .  
+	Uses classes directly (no tables).
+ldaMultnomial_block
+	One iteration of blocked Gibbs sampling with range limiting auxiliary
+	variable (only for multinomials).
+lda_conparam
+	One iteration of update to concentration parameter alpha.
+
+
+Temporary variables
+===================
+jj	index of current group
+ii	index of current data item in group.
+ss	Statistics of current data items.
+oldcc	index of class of current data item (to be replaced with
+	new sample).
+newcc	the new sampled value for class of current data item.
+pi	group specific mixing proportion (Multinomial only).
+theta	a sample from posterior of component parameters (Multinomial only).
+
+
+Variables used
+==============
+			lda_beta	lda_crf		ldaMultinomial_block
+concentration params	alpha		alpha		alpha
+Class membership	datacc				datacc
+					datatt
+					tablecc
+					tablend
+					numtable
+class statistics	numclass	numclass	numclass
+			beta		beta		beta
+							eta
+					classnt		
+			classnd				classnd
+			classqq		classqq
+							classss
+
+
+Specializing and Standardizing
+==============================
+std->crf: create datatt,tablecc,tablend,numtable,classnt
+          delete datacc,classnd
+std->block: create classss,eta
+            delete classqq
+crf->std: delete datatt,tablecc,tablend,numtable,classnt
+          create datacc,classnd
+block->std: delete classss,eta
+            create classqq

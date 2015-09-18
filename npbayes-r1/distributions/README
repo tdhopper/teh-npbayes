@@ -1,0 +1,112 @@
+Distributions for data vectors and their conjugate priors for mixture 
+modelling:
+GaussianWishart Gaussian distribution with conjugate Gaussian-Wishart prior 
+		on mean and precision matrix.
+Multinomial     Multinomial with Dirichlet prior.
+
+The idea is that the parameters of the components of a mixture all share
+the same prior.  But the posterior for each component is different since
+different data items are associated with each.  However since they all
+share the same hyperparameters which are seldom updated, we can cache
+much expensive computation so that we may do a few things that are often
+encountered in the mixture modelling setting efficiently: to add one or
+a few data items to a component (update posterior), to remove one or a
+few data items, to compute the marginal probability of the data items in
+a component (integrating out parameters), and to compute the conditional
+probability of one or a few data items given other data items already
+in the component.
+
+Each distribution over the parameters is encoded as an object and
+represented internally with the sufficient statistics of the distribution.
+Each distribution also contains a pointer to where the common cached
+values are.  
+
+Lexicon
+=======
+ii		Index for data item.
+cc		Index for mixture component.
+ss		The statistics of a data vector.
+ss(:,ii)	The statistics of data item ii.
+qq		The posterior over the parameters of each component.
+qq(:,cc)	The posterior over the parameters of component cc.
+
+Internal Representations
+========================
+DistGlobals	A global cell array storing the caches values for every 
+		distribution.
+id		The pointer into where in DistGlobals the cached values for
+		the current distribution is stored.
+nn		The number of data items in the component.
+lik		The marginal log probability of the data items in the component.
+
+
+Common Methods
+==============
+qq0 = Constructor(...)
+	Every time a constructor is called, it is passed the hyperparameters 
+	of the prior over the set of parameters.  It creates an entry in
+	DistGlobals for this set of parameters, and returns the prior 
+	distribution over parameters.
+qq = adddata(qq,ss)
+	Adds data items given in ss into one component qq.
+qq = deldata(qq,ss)
+	Deletes data items from one component qq.
+mm = map(qq)
+	Returns the map value of parameters of components in qq.
+lik = likelihood(qq)
+	For each component in qq returns the log likelihood of data items 
+	associated with that component.
+lik = marglikelihood(qq,ss)
+	For each component in qq returns the log likelihood of data items
+	ss under that component.
+classqq(:,cc) = qq
+	Assigns qq as the cc'th component in classqq.
+qq = classqq(:,cc)
+	Extracts the cc'th component in classqq.
+ll = length(qq)
+	The number of components in qq.
+
+
+Other Methods
+=============
+Multinomial/display(qq)
+	Displays the distribution qq (simply the sufficient statistics of
+	data items associated with qq).
+dd = Multinomial/double(qq)
+	Converts to double.  Returns the sufficient statistics of data items
+	associated with qq.  This is basically a count vector of how many
+	data items have which value.
+eta = Multinomial/parameters(qq)
+	Returns the hypeparameters of qq.
+mm = Multinomial/sample(qq)
+	returns a sample from each component in qq.
+
+
+Caching
+=======
+Global variables are used to make computations more efficient by caching.
+These are all stored in a global cell array DistGlobals.  Each time a
+new distribution is initialized, it creates a new entry in DistGlobals.
+
+id = adddist
+	Creates a new entry in DistGlobals and return a pointer to it.
+deldist(id)
+	Deletes an entry from DistGlobals
+cleardist
+	Clears all entries in DistGlobals.
+
+
+Coding Concerns
+===============
+The rest of the code is made so that each ss can be a column vector or
+struct.  That is, references to ss are always in the form datass(:,ii)
+to access the ii'th data vector (this will return either the ii'th
+column if datass is a double array, or the ii'th struct if datass is a
+struct array.  Similarly, for each mixture, the distributions over the
+parameters of each component are stored in one single array (say qq),
+with qq(:,cc) returning the cc'th component.
+
+Look at how GaussianWishart and Multinomial are implemented to see two
+different ways of dealing with representation of qq.
+
+
